@@ -1,0 +1,7 @@
+# RunPod PyTorch 이미지에서 동작 확인한 버전 (torch 2.8.0+cu128 / torchvision 0.23.0+cu128 은 이미지 것을 사용)
+# 설치: uv pip install -r requirements.txt  →  설치 후 fix_torch_conflict.sh 로 torch 중복 정리
+transformers==5.1.0   # 5.2 부터 EXAONE 원격 코드가 TypeError
+accelerate==1.15.0
+openai==2.54.0        # 수업 노트북은 2.x 기준 (그냥 설치하면 3.x)
+python-dotenv==1.2.4
+ipykernel==7.4.0

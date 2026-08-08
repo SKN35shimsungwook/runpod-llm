@@ -1,0 +1,9 @@
+# 로컬 PC 의 C:\Users\<사용자>\.ssh\config 에 넣습니다 (확장자 없는 파일).
+# IP · 포트는 RunPod 콘솔 Connect 탭의 "SSH over exposed TCP" 값으로 바꾸세요.
+# Pod 를 새로 만들거나 재시작해서 값이 바뀌면 HostName / Port 만 고치면 됩니다.
+
+Host runpod
+    HostName <POD_IP>
+    Port <POD_PORT>
+    User root
+    IdentityFile ~/.ssh/id_ed25519
