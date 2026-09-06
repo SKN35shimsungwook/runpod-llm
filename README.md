@@ -13,8 +13,17 @@ runpod-llm/
     ├── 02_python_basics.ipynb      # 자료형 · 변수 · 함수 · 딕셔너리 · JSON
     ├── 03_fstring_json_실습.ipynb   # 문자열 메서드 · f-string · json · try/except
     ├── 04_오전실습.ipynb             # 노바코프 HR 챗봇 시나리오 빈칸 채우기
-    └── 05_api_key_자율실습.ipynb     # OpenAI API 첫 호출 · temperature · 토큰 비용 계산
+    ├── 05_api_key_자율실습.ipynb     # OpenAI API 첫 호출 · temperature · 토큰 비용 계산
+    ├── 06_파라미터실험_{실습,자율실습,EXAONE}.ipynb   # temperature · max_tokens · top_p · 환각 관찰
+    ├── 07_멀티턴_{실습,자율실습,EXAONE}.ipynb         # chat() 히스토리 · 안전 호출 · 품질 불일치 관찰
+    └── 08_노바코프챗봇_{실습,EXAONE}.ipynb            # 내규 기반 HR 챗봇 v0.1 완성
 ```
+
+06~08은 같은 주제를 세 가지 버전으로 제공합니다.
+
+- `실습`: OpenAI API(gpt-4o-mini) 강의용
+- `자율실습`: 빈칸 채우기 + 정답 코드
+- `EXAONE`: HuggingFace `LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct`를 GPU에 올려 로컬 추론. **RunPod GPU Pod에서 돌리기 좋은 버전**이고, API 비용이 들지 않습니다.
 
 | 노트북 | 핵심 내용 |
 |--------|-----------|
@@ -23,6 +32,9 @@ runpod-llm/
 | 03 | `.strip()`/`.replace()`로 코드펜스 제거, 이중 중괄호 `{{}}`, `safe_parse_json`, 지수 백오프 재시도 |
 | 04 | 위 내용을 HR 챗봇 미션 7개로 복습 |
 | 05 | `openai.OpenAI` 클라이언트, 응답 객체 구조, 역할극 챗봇, gpt-4o-mini 비용 계산 |
+| 06 | temperature 4단계 비교, 0.0 반복 동일성, `finish_reason: length`, top_p, 고온에서의 환각 |
+| 07 | 싱글턴 vs 멀티턴, `chat()` 4단계, 실패 시 히스토리 복구, 품질 불일치 기록, 컨텍스트 한계 |
+| 08 | 내규 데이터 → system 프롬프트 → 멀티턴 → 안전 장치 → 노바코프 챗봇 v0.1 |
 
 ---
 
@@ -113,6 +125,12 @@ client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 ```bash
 # 터미널에서 한 번 설정 (키를 노트북·깃에 직접 쓰지 않기)
 echo 'export OPENAI_API_KEY=<내 API 키>' >> ~/.bashrc && source ~/.bashrc
+```
+
+EXAONE 버전은 모델 가중치를 `~/.cache/huggingface`에 내려받습니다. Container Disk가 작으면 가득 찰 수 있으니 Volume 쪽으로 돌려두세요.
+
+```bash
+echo 'export HF_HOME=/workspace/.cache/huggingface' >> ~/.bashrc && source ~/.bashrc
 ```
 
 > `01_colab_setup.ipynb`의 세션 복구 셀에 남아 있는 `TimeoutException: Requesting secret OPENAI_API_KEY timed out` 출력이 바로 Colab 전용 `userdata`를 Colab UI 밖에서 실행했을 때 나는 에러입니다.
