@@ -8,6 +8,16 @@ SKN35 LLM 과정 실습 노트북을 **RunPod GPU Pod + VS Code(Remote-SSH)** �
 ```
 runpod-llm/
 ├── README.md
+├── requirements.txt                # openai · transformers · accelerate · python-dotenv · ipykernel
+├── .env.example                    # API 키 템플릿 (.env 로 복사, 깃에는 안 올라감)
+├── scripts/
+│   ├── setup_pod.sh                # 새 Pod 1회 세팅: HF 캐시 → Volume, venv, 패키지, Jupyter 커널
+│   └── check_pod.sh                # 메모리 한도(cgroup) · 디스크 · GPU · VS Code SIGKILL 흔적 점검
+├── runpod/
+│   ├── 00_runpod_환경점검.ipynb      # Colab 01번의 RunPod 버전 점검표
+│   ├── 01_EXAONE_챗봇_응용.ipynb     # 08번 챗봇 응용: 속도 측정 · 스트리밍 · 트리밍 · 자동 평가
+│   ├── novacorp.py                 # 내규 · system 프롬프트 · EXAONE 로드/생성/스트리밍 공통 모듈
+│   └── novacorp_chat.py            # SSH 터미널용 스트리밍 챗봇 (대화 기록 저장)
 └── day1/
     ├── 01_colab_setup.ipynb        # 실행 환경 확인 (GPU, pip, 저장소, 세션)
     ├── 02_python_basics.ipynb      # 자료형 · 변수 · 함수 · 딕셔너리 · JSON
@@ -78,6 +88,8 @@ VS Code → `Remote-SSH: Connect to Host...` → `runpod` 선택 → 폴더는 `
 
 ### 4. 접속 직후 점검
 
+`bash scripts/check_pod.sh` 한 줄로 아래 항목을 한 번에 볼 수 있습니다(아래 "RunPod 응용" 참고). 수동으로 확인할 때는 이렇게 합니다.
+
 ```bash
 # 컨테이너에 실제로 할당된 메모리 한도 (free -h는 호스트 전체 값이라 믿으면 안 됨)
 cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null || cat /sys/fs/cgroup/memory.max
@@ -134,6 +146,66 @@ echo 'export HF_HOME=/workspace/.cache/huggingface' >> ~/.bashrc && source ~/.ba
 ```
 
 > `01_colab_setup.ipynb`의 세션 복구 셀에 남아 있는 `TimeoutException: Requesting secret OPENAI_API_KEY timed out` 출력이 바로 Colab 전용 `userdata`를 Colab UI 밖에서 실행했을 때 나는 에러입니다.
+
+---
+
+## RunPod 응용
+
+### 빠른 시작 (새 Pod에서)
+
+```bash
+cd /workspace
+git clone https://github.com/SKN35shimsungwook/runpod-llm.git
+bash runpod-llm/scripts/setup_pod.sh
+source ~/.bashrc
+```
+
+`setup_pod.sh`가 하는 일:
+
+1. `HF_HOME=/workspace/.cache/huggingface` 설정. 모델이 Volume에 저장돼 Pod를 재시작해도 다시 받지 않습니다.
+2. `--system-site-packages` 가상환경 생성. 템플릿에 설치된 torch(수 GB)를 다시 받지 않고 그대로 씁니다.
+3. `requirements.txt` 설치
+4. Jupyter 커널 `Python (runpod-llm)` 등록. VS Code 노트북 오른쪽 위에서 선택합니다.
+5. `.env.example` → `.env` 복사. API 키는 여기에만 적습니다.
+
+### 상태 점검
+
+```bash
+bash scripts/check_pod.sh
+```
+
+컨테이너 메모리 한도(`free -h`가 아니라 cgroup 기준), 디스크, GPU, `HF_HOME`, VS Code 확장 호스트 SIGKILL 횟수를 한 번에 보여줍니다.
+메모리 한도가 4GB 미만이면 경고합니다. 아래 트러블슈팅의 512MB 사례를 바로 잡아내기 위한 스크립트입니다.
+
+### 노트북
+
+| 노트북 | 내용 |
+|--------|------|
+| `runpod/00_runpod_환경점검.ipynb` | 가상환경 · GPU · cgroup 메모리 · 디스크 · `HF_HOME` · `.env` 키 로드(값은 출력하지 않음) · 선택적 OpenAI 연결 테스트 |
+| `runpod/01_EXAONE_챗봇_응용.ipynb` | 08번 노바코프 챗봇을 `novacorp.py` 모듈로 재사용 → `max_new_tokens`별 tokens/sec 측정 → 스트리밍(첫 글자까지 시간) → 히스토리 트리밍 전후 입력 토큰 비교 → 내규 키워드 9문항 자동 평가 후 `/workspace/outputs/*.jsonl` 저장 → (키가 있으면) GPT-4o-mini와 정확도 비교 → VRAM 정리 |
+
+> 01번은 `runpod/` 폴더에서 실행해야 `from novacorp import ...`가 동작합니다. VS Code에서 노트북을 열면 기본으로 그 폴더에서 실행됩니다.
+
+### 터미널 챗봇 (Jupyter 없이)
+
+```bash
+python runpod/novacorp_chat.py
+```
+
+- 답변이 생성되는 대로 출력됩니다(스트리밍).
+- `/reset`은 대화 초기화, `/quit`은 종료입니다.
+- 최근 5턴만 모델에 넣습니다. `MAX_TURNS` 환경변수로 바꿀 수 있습니다.
+- 대화 기록은 `/workspace/outputs/chat_*.jsonl`에 저장됩니다. `LOG_DIR` 환경변수로 위치를 바꿀 수 있습니다.
+
+### 운영 팁
+
+| 상황 | 방법 |
+|------|------|
+| VS Code를 닫아도 작업이 계속 돌게 | `tmux new -s train` 후 실행 → `Ctrl+b d`로 분리, `tmux attach -t train`으로 복귀 |
+| 로그를 남기며 백그라운드 실행 | `nohup python script.py > /workspace/outputs/run.log 2>&1 &` |
+| GPU 사용률 실시간 확인 | `watch -n 1 nvidia-smi` |
+| 결과물 로컬로 받기 | 로컬에서 `scp -r runpod:/workspace/outputs ./outputs` |
+| 비용 아끼기 | 실습이 끝나면 **Stop**. 켜져 있는 시간만큼 과금되고, Stop 상태에서는 Volume 저장 비용만 나갑니다 |
 
 ---
 

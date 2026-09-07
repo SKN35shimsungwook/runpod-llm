@@ -1,0 +1,6 @@
+# torch 는 Runpod Pytorch 템플릿에 설치된 것을 그대로 사용합니다 (setup_pod.sh 의 --system-site-packages)
+openai
+transformers
+accelerate
+python-dotenv
+ipykernel
